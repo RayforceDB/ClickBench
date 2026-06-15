@@ -1,6 +1,8 @@
 /.rf-src/
 /hits.csv
 /hits.csv.gz
+/hits_*.csv
 /log.txt
 /rf_splayed*/
 /*.log
+/*.profraw
