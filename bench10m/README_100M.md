@@ -36,6 +36,29 @@ RAY_BIN=/path/to/rayforce CSV=$PWD/rayforce/hits.csv bench10m/run_rf.sh
 Threads default to `nproc`; override with `THREADS=`. Results (min-of-3 per
 query, ms) print and land in `bench10m/rf_min.txt`.
 
+### Recommended for 100M: the out-of-core store path (run_rf_store.sh)
+
+`.csv.read` (run_rf.sh) holds the whole table in RAM (~2.5x CSV size). For
+100M that is ~180-200 GB. The out-of-core path needs a fraction of that:
+
+```
+THREADS=16 CSV=$PWD/rayforce/hits.csv bench10m/run_rf_store.sh
+```
+
+It builds a splayed column store once (`.csv.splayed`, RAM bounded by
+chunking, writes mmap-able files to disk), then queries it zero-copy
+(`.db.splayed.get` — mmaps columns + the symfile domain). Measured on 20M:
+in-memory peak ~40 GB vs store-query peak ~5.6 GB. The build is slow
+(single-threaded SYM interning) but one-time; queries run over mmap.
+
+CORRECTNESS NOTE (verified): on the full file the store path matches DuckDB
+and the canonical ClickBench row count (99,997,497). The in-memory
+`.csv.read` path currently drops the final row (gives 99,997,496) — a minor
+parser off-by-one, separate rayforce bug. Prefer the store path for
+trustworthy 100M numbers. Always diff query results against DuckDB on the
+same CSV before trusting any run — a memory-pressured query can finish with
+wrong/partial answers, so completion alone is not correctness.
+
 ### Memory — measured, and how to not crash the box
 
 In-memory load holds the whole dataset resident. Measured floor for the full
