@@ -42,11 +42,14 @@ for i in $(seq 0 42); do
   for r in 1 2 3; do printf '%s\n' "$q" >> "$s"; done
 done
 
-run() { "$RAY" -t "$THREADS" -i; }
+# -c sets the worker-pool size (threads); -t 1 turns on the per-expression
+# profiler whose `╰─┤ N ms` lines we parse for timings. (-t is the profiler
+# toggle, NOT a thread count — see rayforce docs/namespaces/sys.md.)
+run() { "$RAY" -c "$THREADS" -t 1 -i; }
 if [ -n "${MEMMAX:-}" ]; then
   echo "running under cgroup cap MemoryMax=$MEMMAX (swap off)" >&2
   run() { systemd-run --user --scope -q -p MemoryMax="$MEMMAX" -p MemorySwapMax=0 \
-            "$RAY" -t "$THREADS" -i; }
+            "$RAY" -c "$THREADS" -t 1 -i; }
 fi
 
 run < "$s" 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -aP '^╰─┤' | grep -oP '[0-9.]+ (?=ms)' > rf_times.txt
